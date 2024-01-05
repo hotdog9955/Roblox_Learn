@@ -1,0 +1,132 @@
+ local learn = {}
+
+function learn.gaussian(mean, sd)
+	return math.sqrt(-2 * math.log(math.random())) * math.cos(2 * math.pi * math.random()) * sd + mean
+end
+
+
+learn.tensor = require(script.tensor)
+learn.model = require(script.model)
+learn.layer = require(script.layer)
+learn.transfer = require(script.transfer)
+learn.criterion = require(script.criterion)
+
+
+--pseudorandomly shuffles datasets, no return value
+function learn.shuffle(features,labels)
+	assert(#features == #labels, "feature and label sizes are not the same, please make sure that #features == #labels")
+	for i = #features, 2, -1 do
+		local j = math.random(i)
+		features[i], features[j], labels[i], labels[j] = features[j], features[i], labels[j], labels[i]
+	end
+end
+
+
+function learn.normalize(samples)
+	local max = 0
+	for _, vector in ipairs(samples) do
+		for j, v in ipairs(vector) do
+			max = math.max(max, math.abs(v))
+		end
+	end
+	if max  > 0 then
+		for _, vector in ipairs(samples) do
+			for j, v in ipairs(vector) do
+				vector[j] = vector[j] / max
+			end
+		end
+	end
+	return max
+end
+
+function learn.unormalize(samples, max)
+	for _, vector in ipairs(samples) do
+		for j, v in ipairs(vector) do
+			vector[j] = vector[j] * max
+		end
+	end
+end
+
+-- Runs all unit tests
+function learn.test()
+
+	--{number, negate?} dataset
+	--local train_features = {{1,0},{3,0},{-1,0},{-3,0},{1,1},{3,1},{-1,1},{-3,1},{-5,1},{-5,0},{5,1},{5,0},{0,0},{0,1}}
+	--local train_labels = {{1},{3},{-1},{-3},{-1},{-3},{1},{3},{5},{-5},{-5},{5},{0},{0}}
+
+	local train_features = {{1,0},{1,1},{0,1},{0,0}}
+	local train_labels = {{1},{0},{1},{0}}
+
+
+
+	learn.shuffle(train_features,train_labels)
+
+
+
+	--local train_features = {{0},{1},{-1},{1}}
+
+	--local train_labels = {{1},{0},{1},{0}}
+
+	local n_input = #train_features[1]
+	local center_nodes = 10
+	local n_output = #train_labels[1]
+
+	print("INPUT SHAPE:",n_input)
+	print("OUTPUT SHAPE:",n_output)
+
+	local model = learn.model.nnet({modules = {
+		learn.layer.dense({n_input = n_input, n_output = center_nodes}),
+		learn.transfer.tanh({}),
+		learn.layer.dense({n_input = center_nodes, n_output = center_nodes}),
+		learn.transfer.tanh({}),
+		learn.layer.dense({n_input = center_nodes, n_output = n_output}),
+		learn.transfer.sigmoid({}),
+	}, criterion = learn.criterion.bce({})})
+
+	local epochs = 250
+	local learning_rate = 0.1
+	local loss
+
+	for i = 1,epochs,1 do
+		loss = model.fit(train_features, train_labels, 1, learning_rate, true)
+	end
+
+
+	local predictions = model.predict(train_features)
+
+
+	local graph_scaler = 40
+	for i = -3,3,0.05 do
+
+		local new = Instance.new('Part')
+		local predict = model.predict({{i,1}})
+
+		new.Anchored = true
+		new.Material = Enum.Material.Neon
+		new.BrickColor = BrickColor.new('Really red')
+
+		new.Position = Vector3.new(i*graph_scaler
+			,predict[1][1]*graph_scaler
+			,0)
+
+		new.Size = Vector3.new(1,1,1)
+		new.Parent = workspace
+	end
+	for i = -3,3,0.05 do
+		local new = Instance.new('Part')
+		local predict = model.predict({{i,0}})
+
+		new.Anchored = true
+		new.Material = Enum.Material.Neon
+		new.BrickColor = BrickColor.new('Electric blue')
+
+		new.Position = Vector3.new(i*graph_scaler
+			,predict[1][1]*graph_scaler
+			,0)
+
+		new.Size = Vector3.new(1,1,1)
+		new.Parent = workspace
+	end
+end
+
+return learn

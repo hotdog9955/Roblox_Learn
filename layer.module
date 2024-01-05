@@ -1,0 +1,48 @@
+local layer = {}
+
+local tensor = require(script.Parent.tensor)
+
+
+
+function layer.dense(p)
+	p.n_input = p.n_input or 1
+	p.n_output = p.n_output or 1
+
+	p.weight_init = p.weight_init or function()
+		return math.sqrt(-2 * math.log(math.random())) * math.cos(2 * math.pi * math.random()) * 1.0 + 0.0
+	end
+
+	p.bias_init = p.bias_init or function()
+		return math.sqrt(-2 * math.log(math.random())) * math.cos(2 * math.pi * math.random()) * 1.0 + 0.0
+	end
+
+
+	p.weights = p.weights or tensor({size = {p.n_output, p.n_input}}).map(p.weight_init)
+	p.gradients = p.gradients or tensor({size = {p.n_output, p.n_input}})
+	p.biases = p.biases or tensor({size = {p.n_output, p.n_input}}).map(p.bias_init)
+	p.bgradients = p.gradients or tensor({size = {p.n_output, p.n_input}})
+
+	function p.forward(input)
+		-- print(table.concat(p.weights.data, ", "))
+		p.output = p.weights.dot(input).add(p.biases)
+		-- print(table.concat(p.output.data, ", "))
+		return p.output
+	end
+
+	function p.backward(input, gradients, bgradients)
+		p.delta = gradients.copy().mul(input)
+		p.bdelta = bgradients.copy().mul(input)
+		local idk = p.weights.transpose().dot(p.delta)
+		return input, idk, idk
+	end
+
+	function p.update(input, learning_rate)
+		p.weights.sub(p.delta.dot(input.transpose()).scale(learning_rate))
+		p.biases.sub(p.delta.dot(input.transpose()).scale(learning_rate*1.5))
+		return p.output
+	end
+
+	return p
+end
+
+return layer
